@@ -1,6 +1,21 @@
 // src/components/tools/EnhancementTools.jsx
 
-export default function EnhancementTools({ editorState, setEditorState }) {
+import { useState } from "react";
+import { flattenImageToBase64, buildCssFilter, resetCssFilterState } from "../../utils/imageUtils";
+import { applyEnhancement } from "../../api/imageApi";
+
+export default function EnhancementTools({
+  editorState,
+  setEditorState,
+  // ✅ Props backend (dikirim dari PropertiesPanel via backendToolProps)
+  image,
+  setImage,
+  isProcessing,
+  setIsProcessing,
+  imgRef,
+}) {
+  const [error, setError] = useState(null);
+
   const sliderConfig = [
     {
       key: "brightness",
@@ -46,7 +61,48 @@ export default function EnhancementTools({ editorState, setEditorState }) {
       contrast: 100,
       sharpen: 0,
       blur: 0,
+      histogramEq: false,
     }));
+    setError(null);
+  };
+
+  // ✅ Handler Apply All: bake CSS filter → POST ke backend
+  const handleApplyAll = async () => {
+    if (!image || !imgRef?.current) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // 1. Bake semua CSS filter yang aktif ke dalam canvas
+      const flatBase64 = flattenImageToBase64(
+        imgRef.current,
+        buildCssFilter(editorState)
+      );
+
+      // 2. Kirim ke backend dengan params enhancement
+      const result = await applyEnhancement(flatBase64, {
+        brightness: editorState.brightness,
+        contrast: editorState.contrast,
+        sharpen: editorState.sharpen,
+        blur: editorState.blur,
+        histogram_eq: editorState.histogramEq,
+      });
+
+      if (result.success) {
+        // 3. Update preview dengan hasil dari backend
+        setImage((prev) => ({ ...prev, preview: result.image }));
+        // 4. Reset CSS filter state (sudah ter-bake ke gambar baru)
+        resetCssFilterState(setEditorState);
+      } else {
+        setError(result.message || "Gagal memproses gambar");
+      }
+    } catch (err) {
+      setError("Tidak dapat terhubung ke server. Pastikan backend berjalan.");
+      console.error("Enhancement error:", err);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -87,15 +143,28 @@ export default function EnhancementTools({ editorState, setEditorState }) {
         <span className="text-sm text-zinc-300">Histogram Equalization</span>
       </label>
 
+      {/* Error message */}
+      {error && (
+        <p className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg p-3">
+          {error}
+        </p>
+      )}
+
       {/* Actions */}
       <div className="pt-4 space-y-2">
-        <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase rounded-lg transition">
-          Apply All
+        {/* ✅ Apply All sekarang terhubung ke handleApplyAll */}
+        <button
+          onClick={handleApplyAll}
+          disabled={!image || isProcessing}
+          className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold uppercase rounded-lg transition"
+        >
+          {isProcessing ? "Processing..." : "Apply All"}
         </button>
 
         <button
           onClick={resetEnhancement}
-          className="w-full py-2.5 bg-transparent border border-zinc-800 text-zinc-500 hover:text-zinc-300 text-xs font-bold uppercase rounded-lg transition"
+          disabled={isProcessing}
+          className="w-full py-2.5 bg-transparent border border-zinc-800 text-zinc-500 hover:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold uppercase rounded-lg transition"
         >
           Reset
         </button>

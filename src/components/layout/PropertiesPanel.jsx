@@ -7,12 +7,37 @@ import BinaryEdgeTools from "../tools/BinaryEdgeTools";
 import ColorProcessingTools from "../tools/ColorProcessingTools";
 import SegmentationTools from "../tools/SegmentationTools";
 
-function PropertiesPanel({ activeCategory, editorState, setEditorState }) {
+function PropertiesPanel({
+  activeCategory,
+  editorState,
+  setEditorState,
+  image,
+  setImage,
+  isProcessing,
+  setIsProcessing,
+  imgRef,
+  // ✅ Crop state diangkat dari editor.jsx
+  cropState,
+  setCropState,
+}) {
+  // Props yang dipakai semua tool backend
+  const backendToolProps = {
+    image,
+    setImage,
+    isProcessing,
+    setIsProcessing,
+    editorState,
+    setEditorState,
+    imgRef,
+  };
+
   const toolComponents = {
     Enhancement: (
       <EnhancementTools
         editorState={editorState}
         setEditorState={setEditorState}
+        // ✅ Enhancement juga bisa pakai backend untuk histogramEq dan sharpen
+        {...backendToolProps}
       />
     ),
 
@@ -20,6 +45,10 @@ function PropertiesPanel({ activeCategory, editorState, setEditorState }) {
       <TransformationTools
         editorState={editorState}
         setEditorState={setEditorState}
+        // ✅ Transformation terhubung ke backend + shared crop state
+        {...backendToolProps}
+        cropState={cropState}
+        setCropState={setCropState}
       />
     ),
 
@@ -30,11 +59,14 @@ function PropertiesPanel({ activeCategory, editorState, setEditorState }) {
       />
     ),
 
-    Restoration: <RestorationTools />,
+    // ✅ PERBAIKAN: Restoration sekarang menerima semua props yang dibutuhkan
+    Restoration: <RestorationTools {...backendToolProps} />,
 
-    "Binary & Edge": <BinaryEdgeTools />,
+    // ✅ PERBAIKAN: BinaryEdge sekarang menerima semua props yang dibutuhkan
+    "Binary & Edge": <BinaryEdgeTools {...backendToolProps} />,
 
-    Segmentation: <SegmentationTools />,
+    // ✅ PERBAIKAN: Segmentation sekarang menerima semua props yang dibutuhkan
+    Segmentation: <SegmentationTools {...backendToolProps} />,
   };
 
   return (
@@ -56,7 +88,6 @@ function PropertiesPanel({ activeCategory, editorState, setEditorState }) {
               <span className="text-2xl font-bold text-white block mb-1">
                 {activeCategory}
               </span>
-
               <div className="h-1 w-8 bg-blue-600 rounded-full"></div>
             </div>
 

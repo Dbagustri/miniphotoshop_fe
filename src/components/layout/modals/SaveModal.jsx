@@ -2,8 +2,9 @@
 
 import { X } from "lucide-react";
 import { useState } from "react";
+import { saveImage } from "../../../api/imageApi";
 
-export default function SaveModal({ isOpen, onClose }) {
+export default function SaveModal({ isOpen, onClose, image }) {
   const [fileName, setFileName] = useState("edited-image");
 
   const [format, setFormat] = useState("jpg");
@@ -11,8 +12,45 @@ export default function SaveModal({ isOpen, onClose }) {
   const [quality, setQuality] = useState(30);
 
   const [compressionMethod, setCompressionMethod] = useState("quantization");
+  const [isSaving, setIsSaving] = useState(false);  // ✅ loading state
+  const [resultInfo, setResultInfo] = useState(null); // ✅ info dari backend
 
   if (!isOpen) return null;
+
+  // ✅ handleSave: kirim ke backend dan trigger download
+  const handleSave = async () => {
+    if (!image) return;
+
+    setIsSaving(true);
+    try {
+      const result = await saveImage(image.preview, {
+        file_name: fileName,
+        format,
+        quality: Number(quality),
+        compression_method: compressionMethod,
+      });
+
+      if (result.success) {
+        // Trigger download dari base64
+        const link = document.createElement("a");
+        link.href = result.image;
+        link.download = `${fileName}.${format}`;
+        link.click();
+
+        // Update info display
+        setResultInfo({
+          estimatedSize: result.estimated_size || "—",
+          compressionRatio: result.compression_ratio || "—",
+        });
+
+        onClose();
+      }
+    } catch (err) {
+      console.error("Save error:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -146,12 +184,12 @@ export default function SaveModal({ isOpen, onClose }) {
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
             <div className="flex justify-between text-sm">
               <span className="text-zinc-500">Estimated Size</span>
-              <span className="text-zinc-300">~1.2 MB</span>
+              <span className="text-zinc-300">{resultInfo?.estimatedSize ?? "~"}</span>
             </div>
 
             <div className="flex justify-between text-sm mt-2">
               <span className="text-zinc-500">Compression Ratio</span>
-              <span className="text-green-400">73%</span>
+              <span className="text-green-400">{resultInfo?.compressionRatio ?? "—"}</span>
             </div>
           </div>
         </div>
@@ -165,8 +203,12 @@ export default function SaveModal({ isOpen, onClose }) {
             Cancel
           </button>
 
-          <button className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium transition">
-            Save Image
+          <button
+            onClick={handleSave}
+            disabled={!image || isSaving}
+            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium transition"
+          >
+            {isSaving ? "Saving..." : "Save Image"}
           </button>
         </div>
       </div>

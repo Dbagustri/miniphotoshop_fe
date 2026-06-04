@@ -1,8 +1,18 @@
 // src/components/tools/BinaryEdgeTools.jsx
 
 import { useState } from "react";
+import { flattenImageToBase64, buildCssFilter, resetCssFilterState } from "../../utils/imageUtils";
+import { applyBinaryEdge } from "../../api/imageApi";
 
-export default function BinaryEdgeTools() {
+export default function BinaryEdgeTools({
+  image,
+  setImage,
+  isProcessing,
+  setIsProcessing,
+  editorState,
+  setEditorState,
+  imgRef,
+}) {
   const [operation, setOperation] = useState("threshold");
 
   const [edgeMethod, setEdgeMethod] = useState("canny");
@@ -24,6 +34,62 @@ export default function BinaryEdgeTools() {
   const [direction, setDirection] = useState("both");
 
   const [iterations, setIterations] = useState(1);
+
+  const [error, setError] = useState(null); // ✅ error state
+
+  // ✅ handleApply: flatten CSS filter lalu kirim ke backend
+  const handleApply = async () => {
+    if (!image || !imgRef?.current) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const flatBase64 = flattenImageToBase64(
+        imgRef.current,
+        buildCssFilter(editorState)
+      );
+
+      // Bangun params berdasarkan operation yang aktif
+      const params = {
+        operation,
+        // threshold params
+        threshold_value: Number(thresholdValue),
+        threshold_type: thresholdType,
+        // edge params
+        edge_method: edgeMethod,
+        lower_threshold: Number(lowerThreshold),
+        upper_threshold: Number(upperThreshold),
+        kernel_size: Number(kernelSize),
+        sigma: Number(sigma),
+        direction,
+        // morphology params
+        morphology_type: morphologyType,
+        iterations: Number(iterations),
+      };
+
+      const result = await applyBinaryEdge(flatBase64, params);
+
+      if (result.success) {
+        setImage((prev) => ({ ...prev, preview: result.image }));
+        resetCssFilterState(setEditorState);
+      } else {
+        setError(result.message || "Gagal memproses gambar");
+      }
+    } catch (err) {
+      setError("Tidak dapat terhubung ke server.");
+      console.error("BinaryEdge error:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (!image) return;
+    setImage((prev) => ({ ...prev, preview: prev.original }));
+    resetCssFilterState(setEditorState);
+    setError(null);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -292,13 +358,28 @@ export default function BinaryEdgeTools() {
         </div>
       )}
 
+      {/* Error message */}
+      {error && (
+        <p className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg p-3">
+          {error}
+        </p>
+      )}
+
       {/* Buttons */}
       <div className="pt-4 space-y-2">
-        <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase rounded-lg transition">
-          Apply
+        <button
+          onClick={handleApply}
+          disabled={!image || isProcessing}
+          className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold uppercase rounded-lg transition"
+        >
+          {isProcessing ? "Processing..." : "Apply"}
         </button>
 
-        <button className="w-full py-2.5 bg-transparent border border-zinc-800 text-zinc-500 hover:text-zinc-300 text-xs font-bold uppercase rounded-lg transition">
+        <button
+          onClick={handleReset}
+          disabled={!image || isProcessing}
+          className="w-full py-2.5 bg-transparent border border-zinc-800 text-zinc-500 hover:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold uppercase rounded-lg transition"
+        >
           Reset
         </button>
       </div>

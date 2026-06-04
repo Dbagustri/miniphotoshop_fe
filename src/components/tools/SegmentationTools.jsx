@@ -2,8 +2,18 @@
 
 import { useState } from "react";
 import { MousePointerClick } from "lucide-react";
+import { flattenImageToBase64, buildCssFilter, resetCssFilterState } from "../../utils/imageUtils";
+import { applySegmentation } from "../../api/imageApi";
 
-export default function SegmentationTools() {
+export default function SegmentationTools({
+  image,
+  setImage,
+  isProcessing,
+  setIsProcessing,
+  editorState,   // ✅ seedPoint ada di editorState.segmentation.seedPoint
+  setEditorState,
+  imgRef,
+}) {
   const [segmentationType, setSegmentationType] = useState("threshold");
 
   const [threshold, setThreshold] = useState(127);
@@ -20,7 +30,57 @@ export default function SegmentationTools() {
 
   const [seedSelectionEnabled, setSeedSelectionEnabled] = useState(false);
 
-  const [seedPoint, setSeedPoint] = useState(null);
+  const [error, setError] = useState(null); // ✅ error state
+
+  // ✅ handleApply: flatten CSS filter lalu kirim ke backend
+  const handleApply = async () => {
+    if (!image || !imgRef?.current) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const flatBase64 = flattenImageToBase64(
+        imgRef.current,
+        buildCssFilter(editorState)
+      );
+
+      const params = {
+        segmentation_type: segmentationType,
+        // threshold params
+        threshold: Number(threshold),
+        threshold_type: thresholdType,
+        // edge params
+        edge_method: edgeMethod,
+        edge_threshold: Number(edgeThreshold),
+        sensitivity: Number(sensitivity),
+        // region params
+        seed_point: editorState.segmentation?.seedPoint || null,
+        tolerance: Number(tolerance),
+      };
+
+      const result = await applySegmentation(flatBase64, params);
+
+      if (result.success) {
+        setImage((prev) => ({ ...prev, preview: result.image }));
+        resetCssFilterState(setEditorState);
+      } else {
+        setError(result.message || "Gagal memproses gambar");
+      }
+    } catch (err) {
+      setError("Tidak dapat terhubung ke server.");
+      console.error("Segmentation error:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (!image) return;
+    setImage((prev) => ({ ...prev, preview: prev.original }));
+    resetCssFilterState(setEditorState);
+    setError(null);
+  };
 
   const handleSeedSelection = () => {
     setSeedSelectionEnabled(!seedSelectionEnabled);
@@ -147,7 +207,7 @@ export default function SegmentationTools() {
         </div>
       )}
 
-      {/* REGION BASED */}
+      {/* REGION BASED — show editorState.segmentation.seedPoint */}
       {segmentationType === "region" && (
         <div className="space-y-5">
           {/* Seed Selection */}
@@ -171,13 +231,13 @@ export default function SegmentationTools() {
                 : "Enable Seed Selection"}
             </button>
 
-            {seedPoint && (
+            {editorState.segmentation?.seedPoint && (
               <div className="mt-3 p-3 rounded-lg bg-zinc-900/50 border border-zinc-800 text-sm text-zinc-400">
                 Seed Point:
                 <span className="text-zinc-200 ml-2">
                   X:
-                  {seedPoint.x} | Y:
-                  {seedPoint.y}
+                  {editorState.segmentation.seedPoint.x} | Y:
+                  {editorState.segmentation.seedPoint.y}
                 </span>
               </div>
             )}
@@ -199,13 +259,28 @@ export default function SegmentationTools() {
         </div>
       )}
 
+      {/* Error message */}
+      {error && (
+        <p className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg p-3">
+          {error}
+        </p>
+      )}
+
       {/* Buttons */}
       <div className="pt-4 space-y-2">
-        <button className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold uppercase rounded-lg transition">
-          Apply
+        <button
+          onClick={handleApply}
+          disabled={!image || isProcessing}
+          className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold uppercase rounded-lg transition"
+        >
+          {isProcessing ? "Processing..." : "Apply"}
         </button>
 
-        <button className="w-full py-2.5 bg-transparent border border-zinc-800 text-zinc-500 hover:text-zinc-300 text-xs font-bold uppercase rounded-lg transition">
+        <button
+          onClick={handleReset}
+          disabled={!image || isProcessing}
+          className="w-full py-2.5 bg-transparent border border-zinc-800 text-zinc-500 hover:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold uppercase rounded-lg transition"
+        >
           Reset
         </button>
       </div>
