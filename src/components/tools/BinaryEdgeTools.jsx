@@ -1,7 +1,11 @@
 // src/components/tools/BinaryEdgeTools.jsx
 
-import { useState } from "react";
-import { flattenImageToBase64, buildCssFilter, resetCssFilterState } from "../../utils/imageUtils";
+import { useState, useEffect } from "react";
+import {
+  flattenImageToBase64,
+  buildCssFilter,
+  resetCssFilterState,
+} from "../../utils/imageUtils";
 import { applyBinaryEdge } from "../../api/imageApi";
 
 export default function BinaryEdgeTools({
@@ -14,28 +18,24 @@ export default function BinaryEdgeTools({
   imgRef,
 }) {
   const [operation, setOperation] = useState("threshold");
-
   const [edgeMethod, setEdgeMethod] = useState("canny");
-
   const [morphologyType, setMorphologyType] = useState("erosion");
-
   const [thresholdValue, setThresholdValue] = useState(127);
-
   const [thresholdType, setThresholdType] = useState("binary");
-
   const [lowerThreshold, setLowerThreshold] = useState(50);
-
   const [upperThreshold, setUpperThreshold] = useState(150);
-
   const [kernelSize, setKernelSize] = useState(3);
-
   const [sigma, setSigma] = useState(1.5);
-
   const [direction, setDirection] = useState("both");
-
   const [iterations, setIterations] = useState(1);
-
   const [error, setError] = useState(null); // ✅ error state
+  const [backupImage, setBackupImage] = useState(null);
+  const [lastAppliedOperation, setLastAppliedOperation] = useState(null);
+
+  useEffect(() => {
+    setBackupImage(null);
+    setLastAppliedOperation(null);
+  }, [image?.original]);
 
   // ✅ handleApply: flatten CSS filter lalu kirim ke backend
   const handleApply = async () => {
@@ -47,8 +47,14 @@ export default function BinaryEdgeTools({
     try {
       const flatBase64 = flattenImageToBase64(
         imgRef.current,
-        buildCssFilter(editorState)
+        buildCssFilter(editorState),
       );
+      let currentBackup = backupImage;
+      if (operation !== lastAppliedOperation) {
+        currentBackup = flatBase64;
+        setBackupImage(flatBase64);
+        setLastAppliedOperation(operation);
+      }
 
       // Bangun params berdasarkan operation yang aktif
       const params = {
@@ -68,20 +74,10 @@ export default function BinaryEdgeTools({
         iterations: Number(iterations),
       };
 
-      const result = await applyBinaryEdge(flatBase64, params);
-
+      const result = await applyBinaryEdge(currentBackup, params);
       if (result.success) {
         setImage((prev) => ({ ...prev, preview: result.image }));
         resetCssFilterState(setEditorState);
-        // Reset local parameter ke default
-        setThresholdValue(127);
-        setThresholdType("binary");
-        setLowerThreshold(50);
-        setUpperThreshold(150);
-        setKernelSize(3);
-        setSigma(1.5);
-        setDirection("both");
-        setIterations(1);
       } else {
         setError(result.message || "Gagal memproses gambar");
       }
@@ -106,6 +102,8 @@ export default function BinaryEdgeTools({
     setSigma(1.5);
     setDirection("both");
     setIterations(1);
+    setBackupImage(null);
+    setLastAppliedOperation(null);
     setError(null);
   };
 
@@ -135,10 +133,11 @@ export default function BinaryEdgeTools({
             <label
               key={item.id}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition
-              ${operation === item.id
+              ${
+                operation === item.id
                   ? "bg-blue-600/10 border-blue-500"
                   : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
-                }`}
+              }`}
             >
               <input
                 type="radio"

@@ -1,7 +1,11 @@
 // src/components/tools/RestorationTools.jsx
 
-import { useState } from "react";
-import { flattenImageToBase64, buildCssFilter, resetCssFilterState } from "../../utils/imageUtils";
+import { useState, useEffect } from "react";
+import {
+  flattenImageToBase64,
+  buildCssFilter,
+  resetCssFilterState,
+} from "../../utils/imageUtils";
 import { applyRestoration } from "../../api/imageApi";
 
 export default function RestorationTools({
@@ -18,6 +22,13 @@ export default function RestorationTools({
   const [sigma, setSigma] = useState(1.5);
   const [intensity, setIntensity] = useState(50);
   const [error, setError] = useState(null);
+  const [backupImage, setBackupImage] = useState(null);
+  const [lastAppliedOperation, setLastAppliedOperation] = useState(null);
+
+  useEffect(() => {
+    setBackupImage(null);
+    setLastAppliedOperation(null);
+  }, [image?.original]);
 
   const handleApply = async () => {
     if (!image || !imgRef?.current) return;
@@ -29,11 +40,17 @@ export default function RestorationTools({
       // 1. Bake CSS filter ke gambar sebelum dikirim ke backend
       const flatBase64 = flattenImageToBase64(
         imgRef.current,
-        buildCssFilter(editorState)
+        buildCssFilter(editorState),
       );
+      let currentBackup = backupImage;
+      if (selectedFilter !== lastAppliedOperation) {
+        currentBackup = flatBase64;
+        setBackupImage(flatBase64);
+        setLastAppliedOperation(selectedFilter);
+      }
 
       // 2. Kirim ke backend
-      const result = await applyRestoration(flatBase64, {
+      const result = await applyRestoration(currentBackup, {
         filter: selectedFilter,
         kernel_size: Number(kernelSize),
         sigma: Number(sigma),
@@ -45,10 +62,6 @@ export default function RestorationTools({
         setImage((prev) => ({ ...prev, preview: result.image }));
         // 4. Reset CSS filter (sudah ter-bake)
         resetCssFilterState(setEditorState);
-        // 5. Reset local parameter ke default
-        setKernelSize(3);
-        setSigma(1.5);
-        setIntensity(50);
       } else {
         setError(result.message || "Gagal memproses gambar");
       }
@@ -66,6 +79,8 @@ export default function RestorationTools({
     setKernelSize(3);
     setSigma(1.5);
     setIntensity(50);
+    setBackupImage(null);
+    setLastAppliedOperation(null);
     setError(null);
   };
 
@@ -86,9 +101,10 @@ export default function RestorationTools({
             <label
               key={filter.id}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition
-                ${selectedFilter === filter.id
-                  ? "bg-blue-600/10 border-blue-500"
-                  : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
+                ${
+                  selectedFilter === filter.id
+                    ? "bg-blue-600/10 border-blue-500"
+                    : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
                 }`}
             >
               <input
@@ -107,19 +123,46 @@ export default function RestorationTools({
       {/* Gaussian Blur */}
       {selectedFilter === "gaussian" && (
         <div className="space-y-5">
-          <Slider label="Kernel Size" value={kernelSize} min={1} max={31} step={2} onChange={setKernelSize} />
-          <Slider label="Sigma" value={sigma} min={0} max={10} step={0.1} onChange={setSigma} />
+          <Slider
+            label="Kernel Size"
+            value={kernelSize}
+            min={1}
+            max={31}
+            step={2}
+            onChange={setKernelSize}
+          />
+          <Slider
+            label="Sigma"
+            value={sigma}
+            min={0}
+            max={10}
+            step={0.1}
+            onChange={setSigma}
+          />
         </div>
       )}
 
       {/* Median Filter */}
       {selectedFilter === "median" && (
-        <Slider label="Kernel Size" value={kernelSize} min={1} max={15} step={2} onChange={setKernelSize} />
+        <Slider
+          label="Kernel Size"
+          value={kernelSize}
+          min={1}
+          max={15}
+          step={2}
+          onChange={setKernelSize}
+        />
       )}
 
       {/* Salt & Pepper */}
       {selectedFilter === "saltpepper" && (
-        <Slider label="Noise Reduction" value={intensity} min={0} max={100} onChange={setIntensity} />
+        <Slider
+          label="Noise Reduction"
+          value={intensity}
+          min={0}
+          max={100}
+          onChange={setIntensity}
+        />
       )}
 
       {/* Error message */}

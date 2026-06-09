@@ -1,7 +1,11 @@
 // src/components/tools/EnhancementTools.jsx
 
-import { useState } from "react";
-import { flattenImageToBase64, buildCssFilter, resetCssFilterState } from "../../utils/imageUtils";
+import { useState, useEffect } from "react";
+import {
+  flattenImageToBase64,
+  buildCssFilter,
+  resetCssFilterState,
+} from "../../utils/imageUtils";
 import { applyEnhancement } from "../../api/imageApi";
 
 export default function EnhancementTools({
@@ -17,6 +21,11 @@ export default function EnhancementTools({
   imgRef,
 }) {
   const [error, setError] = useState(null);
+  const [backupImage, setBackupImage] = useState(null);
+
+  useEffect(() => {
+    setBackupImage(null);
+  }, [image?.original]);
 
   const sliderConfig = [
     {
@@ -57,6 +66,9 @@ export default function EnhancementTools({
   };
 
   const resetEnhancement = () => {
+    if (backupImage) {
+      setImage((prev) => ({ ...prev, preview: backupImage }));
+    }
     setEditorState((prev) => ({
       ...prev,
       brightness: 100,
@@ -73,10 +85,11 @@ export default function EnhancementTools({
       blur: 0,
       histogramEq: false,
     }));
+    setBackupImage(null);
     setError(null);
   };
 
-  // ✅ Handler Apply All: send current preview directly → POST ke backend dengan parameter selisih
+  // ✅ Handler Apply All: send absolute parameters based on cached backup image to prevent clipping loss
   const handleApplyAll = async () => {
     if (!image) return;
 
@@ -84,22 +97,28 @@ export default function EnhancementTools({
     setError(null);
 
     try {
-      // Hitung parameter selisih dibanding apa yang sudah di-bake sebelumnya
-      const diffParams = {
-        brightness: editorState.brightness - (bakedState?.brightness ?? 100) + 100,
-        contrast: editorState.contrast - (bakedState?.contrast ?? 100) + 100,
-        sharpen: editorState.sharpen - (bakedState?.sharpen ?? 0),
-        blur: editorState.blur - (bakedState?.blur ?? 0),
-        histogram_eq: editorState.histogramEq && !(bakedState?.histogramEq ?? false),
+      let currentBackup = backupImage;
+      if (!currentBackup) {
+        currentBackup = image.preview;
+        setBackupImage(image.preview);
+      }
+
+      // Kirim absolute parameters ke backend
+      const params = {
+        brightness: editorState.brightness,
+        contrast: editorState.contrast,
+        sharpen: editorState.sharpen,
+        blur: editorState.blur,
+        histogram_eq: editorState.histogramEq,
       };
 
-      // Kirim ke backend
-      const result = await applyEnhancement(image.preview, diffParams);
+      // Kirim ke backend menggunakan currentBackup sebagai source
+      const result = await applyEnhancement(currentBackup, params);
 
       if (result.success) {
         // Update preview dengan hasil dari backend
         setImage((prev) => ({ ...prev, preview: result.image }));
-        
+
         // Tandai filter saat ini sebagai filter yang sudah sukses di-bake
         setBakedState((prev) => ({
           ...prev,

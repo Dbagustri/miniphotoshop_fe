@@ -1,8 +1,12 @@
 // src/components/tools/SegmentationTools.jsx
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MousePointerClick } from "lucide-react";
-import { flattenImageToBase64, buildCssFilter, resetCssFilterState } from "../../utils/imageUtils";
+import {
+  flattenImageToBase64,
+  buildCssFilter,
+  resetCssFilterState,
+} from "../../utils/imageUtils";
 import { applySegmentation } from "../../api/imageApi";
 
 export default function SegmentationTools({
@@ -10,27 +14,26 @@ export default function SegmentationTools({
   setImage,
   isProcessing,
   setIsProcessing,
-  editorState,   // ✅ seedPoint ada di editorState.segmentation.seedPoint
+  editorState, // ✅ seedPoint ada di editorState.segmentation.seedPoint
   setEditorState,
   imgRef,
 }) {
   const [segmentationType, setSegmentationType] = useState("threshold");
-
   const [threshold, setThreshold] = useState(127);
-
   const [thresholdType, setThresholdType] = useState("binary");
-
   const [edgeMethod, setEdgeMethod] = useState("canny");
-
   const [edgeThreshold, setEdgeThreshold] = useState(100);
-
   const [sensitivity, setSensitivity] = useState(50);
-
   const [tolerance, setTolerance] = useState(25);
-
   const [seedSelectionEnabled, setSeedSelectionEnabled] = useState(false);
-
   const [error, setError] = useState(null); // ✅ error state
+  const [backupImage, setBackupImage] = useState(null);
+  const [lastAppliedOperation, setLastAppliedOperation] = useState(null);
+
+  useEffect(() => {
+    setBackupImage(null);
+    setLastAppliedOperation(null);
+  }, [image?.original]);
 
   // ✅ handleApply: flatten CSS filter lalu kirim ke backend
   const handleApply = async () => {
@@ -42,8 +45,14 @@ export default function SegmentationTools({
     try {
       const flatBase64 = flattenImageToBase64(
         imgRef.current,
-        buildCssFilter(editorState)
+        buildCssFilter(editorState),
       );
+      let currentBackup = backupImage;
+      if (segmentationType !== lastAppliedOperation) {
+        currentBackup = flatBase64;
+        setBackupImage(flatBase64);
+        setLastAppliedOperation(segmentationType);
+      }
 
       const params = {
         segmentation_type: segmentationType,
@@ -59,26 +68,10 @@ export default function SegmentationTools({
         tolerance: Number(tolerance),
       };
 
-      const result = await applySegmentation(flatBase64, params);
-
+      const result = await applySegmentation(currentBackup, params);
       if (result.success) {
         setImage((prev) => ({ ...prev, preview: result.image }));
         resetCssFilterState(setEditorState);
-        // Reset local parameter ke default
-        setThreshold(127);
-        setThresholdType("binary");
-        setEdgeMethod("canny");
-        setEdgeThreshold(100);
-        setSensitivity(50);
-        setTolerance(25);
-        setSeedSelectionEnabled(false);
-        setEditorState((prev) => ({
-          ...prev,
-          segmentation: {
-            seedPoint: null,
-            tolerance: 25,
-          },
-        }));
       } else {
         setError(result.message || "Gagal memproses gambar");
       }
@@ -107,6 +100,8 @@ export default function SegmentationTools({
         tolerance: 25,
       },
     }));
+    setBackupImage(null);
+    setLastAppliedOperation(null);
     setError(null);
   };
 
@@ -140,10 +135,11 @@ export default function SegmentationTools({
             <label
               key={item.id}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition
-              ${segmentationType === item.id
+              ${
+                segmentationType === item.id
                   ? "bg-blue-600/10 border-blue-500"
                   : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
-                }`}
+              }`}
             >
               <input
                 type="radio"
@@ -246,10 +242,11 @@ export default function SegmentationTools({
             <button
               onClick={handleSeedSelection}
               className={`w-full flex items-center justify-center gap-2 p-3 rounded-lg border transition text-sm font-medium
-              ${seedSelectionEnabled
+              ${
+                seedSelectionEnabled
                   ? "bg-blue-600/10 border-blue-500 text-blue-400"
                   : "bg-zinc-900/50 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
-                }`}
+              }`}
             >
               <MousePointerClick size={18} />
               {seedSelectionEnabled

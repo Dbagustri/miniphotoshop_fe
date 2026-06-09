@@ -47,6 +47,28 @@ function Editor() {
   const [editorState, setEditorState] = useState(defaultEditorState);
   const [bakedState, setBakedState] = useState(defaultEditorState);
 
+  // Reset enhancement sliders when leaving the Enhancement tab
+  useEffect(() => {
+    if (activeCategory !== "Enhancement") {
+      setEditorState((prev) => ({
+        ...prev,
+        brightness: 100,
+        contrast: 100,
+        sharpen: 0,
+        blur: 0,
+        histogramEq: false,
+      }));
+      setBakedState((prev) => ({
+        ...prev,
+        brightness: 100,
+        contrast: 100,
+        sharpen: 0,
+        blur: 0,
+        histogramEq: false,
+      }));
+    }
+  }, [activeCategory]);
+
   // ✅ loading state untuk operasi backend
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -99,7 +121,10 @@ function Editor() {
         // Reset state saat gambar baru di-upload
         setEditorState(defaultEditorState);
         setBakedState(defaultEditorState);
-        setCropState({ active: false, rect: { x: 0, y: 0, width: 0, height: 0 } });
+        setCropState({
+          active: false,
+          rect: { x: 0, y: 0, width: 0, height: 0 },
+        });
       };
       img.src = base64;
     };
@@ -179,7 +204,9 @@ function Editor() {
         />
 
         <div className="flex-1 flex flex-col relative bg-zinc-900 overflow-hidden">
-          <main className={`flex-1 min-h-0 overflow-hidden flex items-center justify-center p-8 bg-[radial-gradient(#27272a_1px,transparent_1px)] bg-[size:20px_20px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${footerOpen ? "pb-[300px]" : "pb-16"}`}>
+          <main
+            className={`flex-1 min-h-0 overflow-hidden flex items-center justify-center p-8 bg-[radial-gradient(#27272a_1px,transparent_1px)] bg-[size:20px_20px] transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${footerOpen ? "pb-[300px]" : "pb-16"}`}
+          >
             <CanvasEditor
               image={image}
               setImage={setImage}

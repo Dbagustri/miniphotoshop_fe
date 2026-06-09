@@ -70,7 +70,9 @@ function BeforeAfterPanel({ image, onClose }) {
           <div className="w-full h-full flex flex-col items-center justify-center text-zinc-700 gap-3 border border-dashed border-zinc-800 rounded-xl">
             <SplitSquareHorizontal size={22} className="opacity-40" />
             <span className="text-[10px] uppercase tracking-wider text-center px-4 leading-relaxed">
-              Apply operasi ke gambar<br />untuk melihat perbandingan
+              Apply operasi ke gambar
+              <br />
+              untuk melihat perbandingan
             </span>
           </div>
         ) : (
@@ -135,7 +137,9 @@ function BeforeAfterPanel({ image, onClose }) {
       {/* Footer hint */}
       {!isSame && image?.original && image?.preview && (
         <div className="px-4 py-2 border-t border-zinc-800 shrink-0">
-          <p className="text-[10px] text-zinc-600 text-center">Drag slider untuk membandingkan</p>
+          <p className="text-[10px] text-zinc-600 text-center">
+            Drag slider untuk membandingkan
+          </p>
         </div>
       )}
     </div>
@@ -181,20 +185,20 @@ function CanvasEditor({
   // Auto-fit image to container on load or reset
   useEffect(() => {
     if (!image || !imgRef?.current || !containerRef?.current) return;
-    
+
     const imgEl = imgRef.current;
-    
+
     const performFit = () => {
       if (!containerRef.current) return;
       const containerW = containerRef.current.clientWidth - 64; // 32px padding on each side
       const containerH = containerRef.current.clientHeight - 64;
       const imgW = imgEl.naturalWidth || 800;
       const imgH = imgEl.naturalHeight || 600;
-      
+
       const zoomX = containerW / imgW;
       const zoomY = containerH / imgH;
       const fitZoom = Number(Math.min(zoomX, zoomY, 1).toFixed(2));
-      
+
       setEditorState((prev) => ({
         ...prev,
         zoom: fitZoom,
@@ -217,7 +221,7 @@ function CanvasEditor({
   const handleUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    onUpload(file);   // ✅ delegasikan ke handler di editor.jsx
+    onUpload(file); // ✅ delegasikan ke handler di editor.jsx
   };
 
   // ======================
@@ -225,22 +229,25 @@ function CanvasEditor({
   // ======================
 
   // Helper: konversi koordinat layar → koordinat pixel gambar asli
-  const screenToImageCoords = useCallback((clientX, clientY) => {
-    if (!imgRef?.current) return null;
-    const imgEl = imgRef.current;
-    const rect = imgEl.getBoundingClientRect();
-    const scaleW = imgEl.naturalWidth / rect.width;
-    const scaleH = imgEl.naturalHeight / rect.height;
-    const relX = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const relY = Math.max(0, Math.min(clientY - rect.top, rect.height));
-    return {
-      imgX: Math.round(relX * scaleW),
-      imgY: Math.round(relY * scaleH),
-      // Juga simpan koordinat layar untuk overlay visual
-      screenX: clientX - rect.left,
-      screenY: clientY - rect.top,
-    };
-  }, [imgRef]);
+  const screenToImageCoords = useCallback(
+    (clientX, clientY) => {
+      if (!imgRef?.current) return null;
+      const imgEl = imgRef.current;
+      const rect = imgEl.getBoundingClientRect();
+      const scaleW = imgEl.naturalWidth / rect.width;
+      const scaleH = imgEl.naturalHeight / rect.height;
+      const relX = Math.max(0, Math.min(clientX - rect.left, rect.width));
+      const relY = Math.max(0, Math.min(clientY - rect.top, rect.height));
+      return {
+        imgX: Math.round(relX * scaleW),
+        imgY: Math.round(relY * scaleH),
+        // Juga simpan koordinat layar untuk overlay visual
+        screenX: clientX - rect.left,
+        screenY: clientY - rect.top,
+      };
+    },
+    [imgRef],
+  );
 
   const handleMouseDown = (e) => {
     if (cropActive) {
@@ -248,13 +255,19 @@ function CanvasEditor({
       const coords = screenToImageCoords(e.clientX, e.clientY);
       if (!coords) return;
       cropDragOrigin.current = coords;
-      setCropState({ active: true, rect: { x: coords.imgX, y: coords.imgY, width: 0, height: 0 } });
+      setCropState({
+        active: true,
+        rect: { x: coords.imgX, y: coords.imgY, width: 0, height: 0 },
+      });
       e.preventDefault();
       return;
     }
     if (!canDrag) return;
     setIsDragging(true);
-    setDragStart({ x: e.clientX - editorState.translateX, y: e.clientY - editorState.translateY });
+    setDragStart({
+      x: e.clientX - editorState.translateX,
+      y: e.clientY - editorState.translateY,
+    });
   };
 
   const handleMouseMove = (e) => {
@@ -321,24 +334,37 @@ function CanvasEditor({
   };
 
   const zoomOut = () => {
-    setEditorState((prev) => ({ ...prev, zoom: Math.max(prev.zoom - 0.1, 0.5) }));
+    setEditorState((prev) => ({
+      ...prev,
+      zoom: Math.max(prev.zoom - 0.1, 0.5),
+    }));
   };
 
   const resetZoom = () => {
     if (!imgRef?.current || !containerRef?.current) {
-      setEditorState((prev) => ({ ...prev, zoom: 1, translateX: 0, translateY: 0 }));
+      setEditorState((prev) => ({
+        ...prev,
+        zoom: 1,
+        translateX: 0,
+        translateY: 0,
+      }));
       return;
     }
     const containerW = containerRef.current.clientWidth - 64;
     const containerH = containerRef.current.clientHeight - 64;
     const imgW = imgRef.current.naturalWidth || 800;
     const imgH = imgRef.current.naturalHeight || 600;
-    
+
     const zoomX = containerW / imgW;
     const zoomY = containerH / imgH;
     const fitZoom = Number(Math.min(zoomX, zoomY, 1).toFixed(2));
-    
-    setEditorState((prev) => ({ ...prev, zoom: fitZoom, translateX: 0, translateY: 0 }));
+
+    setEditorState((prev) => ({
+      ...prev,
+      zoom: fitZoom,
+      translateX: 0,
+      translateY: 0,
+    }));
   };
 
   // ======================
@@ -348,14 +374,13 @@ function CanvasEditor({
   const handleClick = (e) => {
     // Seed point untuk segmentation (hanya saat crop tidak aktif)
     if (!cropActive) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
+      const coords = screenToImageCoords(e.clientX, e.clientY);
+      if (!coords) return;
       setEditorState((prev) => ({
         ...prev,
         segmentation: {
           ...prev.segmentation,
-          seedPoint: { x: Math.round(x), y: Math.round(y) },
+          seedPoint: { x: coords.imgX, y: coords.imgY },
         },
       }));
     }
@@ -363,7 +388,13 @@ function CanvasEditor({
 
   // ── Hitung posisi + ukuran overlay crop dalam koordinat layar ──────────────
   const computeCropOverlay = () => {
-    if (!imgRef?.current || !cropActive || cropRect.width < 2 || cropRect.height < 2) return null;
+    if (
+      !imgRef?.current ||
+      !cropActive ||
+      cropRect.width < 2 ||
+      cropRect.height < 2
+    )
+      return null;
     const imgEl = imgRef.current;
     const rect = imgEl.getBoundingClientRect();
     const scaleW = rect.width / imgEl.naturalWidth;
@@ -456,16 +487,21 @@ function CanvasEditor({
                   transition-transform
                   duration-100
                   ease-out
-                  ${cropActive
-                    ? "cursor-crosshair"
-                    : canDrag
-                      ? "cursor-grab"
-                      : "cursor-default"
+                  ${
+                    cropActive
+                      ? "cursor-crosshair"
+                      : canDrag
+                        ? "cursor-grab"
+                        : "cursor-default"
                   }
                 `}
                 style={{
-                  width: imageInfo ? `${imageInfo.width * editorState.zoom}px` : "auto",
-                  height: imageInfo ? `${imageInfo.height * editorState.zoom}px` : "auto",
+                  width: imageInfo
+                    ? `${imageInfo.width * editorState.zoom}px`
+                    : "auto",
+                  height: imageInfo
+                    ? `${imageInfo.height * editorState.zoom}px`
+                    : "auto",
                   maxWidth: "none",
                   maxHeight: "none",
                   filter: `
@@ -478,8 +514,8 @@ function CanvasEditor({
                   `,
                   transform: `
                     translate(${bakedState ? editorState.translateX - (bakedState.translateX || 0) : editorState.translateX}px, ${bakedState ? editorState.translateY - (bakedState.translateY || 0) : editorState.translateY}px)
-                    scaleX(${(editorState.flipHorizontal !== (bakedState?.flipHorizontal ?? false)) ? -1 : 1})
-                    scaleY(${(editorState.flipVertical !== (bakedState?.flipVertical ?? false)) ? -1 : 1})
+                    scaleX(${editorState.flipHorizontal !== (bakedState?.flipHorizontal ?? false) ? -1 : 1})
+                    scaleY(${editorState.flipVertical !== (bakedState?.flipVertical ?? false) ? -1 : 1})
                     rotate(${bakedState ? editorState.rotate - (bakedState.rotate || 0) : editorState.rotate}deg)
                   `,
                 }}
@@ -508,12 +544,36 @@ function CanvasEditor({
                     }}
                   >
                     {/* Corner handles */}
-                    {[["top-0 left-0", "-translate-x-1/2 -translate-y-1/2"], ["top-0 right-0", "translate-x-1/2 -translate-y-1/2"], ["bottom-0 left-0", "-translate-x-1/2 translate-y-1/2"], ["bottom-0 right-0", "translate-x-1/2 translate-y-1/2"]].map(([pos, tr], i) => (
-                      <div key={i} className={`absolute ${pos} w-3 h-3 bg-rose-400 rounded-sm border border-white/50 transform ${tr}`} />
+                    {[
+                      ["top-0 left-0", "-translate-x-1/2 -translate-y-1/2"],
+                      ["top-0 right-0", "translate-x-1/2 -translate-y-1/2"],
+                      ["bottom-0 left-0", "-translate-x-1/2 translate-y-1/2"],
+                      ["bottom-0 right-0", "translate-x-1/2 translate-y-1/2"],
+                    ].map(([pos, tr], i) => (
+                      <div
+                        key={i}
+                        className={`absolute ${pos} w-3 h-3 bg-rose-400 rounded-sm border border-white/50 transform ${tr}`}
+                      />
                     ))}
                     {/* Rule-of-thirds lines */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ borderLeft: "1px solid rgba(255,255,255,0.15)", borderRight: "1px solid rgba(255,255,255,0.15)", left: "33.3%", right: "33.3%" }} />
-                    <div className="absolute inset-0 pointer-events-none" style={{ borderTop: "1px solid rgba(255,255,255,0.15)", borderBottom: "1px solid rgba(255,255,255,0.15)", top: "33.3%", bottom: "33.3%" }} />
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        borderLeft: "1px solid rgba(255,255,255,0.15)",
+                        borderRight: "1px solid rgba(255,255,255,0.15)",
+                        left: "33.3%",
+                        right: "33.3%",
+                      }}
+                    />
+                    <div
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        borderTop: "1px solid rgba(255,255,255,0.15)",
+                        borderBottom: "1px solid rgba(255,255,255,0.15)",
+                        top: "33.3%",
+                        bottom: "33.3%",
+                      }}
+                    />
                     {/* Size badge */}
                     <div className="absolute bottom-1 right-1 bg-black/70 text-rose-300 text-[9px] font-mono px-1.5 py-0.5 rounded">
                       {cropRect.width}×{cropRect.height}
@@ -560,9 +620,10 @@ function CanvasEditor({
                 className={`
                   absolute bottom-5 left-5 flex items-center gap-2 px-3 py-2 rounded-2xl
                   border backdrop-blur-md shadow-xl text-xs font-semibold transition-all duration-200
-                  ${showBeforeAfterPanel
-                    ? "bg-blue-600/20 border-blue-500 text-blue-400 shadow-blue-900/40"
-                    : "bg-zinc-950/90 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
+                  ${
+                    showBeforeAfterPanel
+                      ? "bg-blue-600/20 border-blue-500 text-blue-400 shadow-blue-900/40"
+                      : "bg-zinc-950/90 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
                   }
                 `}
               >
