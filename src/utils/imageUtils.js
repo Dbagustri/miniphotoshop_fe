@@ -107,5 +107,7 @@ export function resetCssFilterState(setEditorState) {
     grayscale: false,
     saturation: 100,
     hue: 0,
+    sharpen: 0,
+    histogramEq: false,
   }));
 }

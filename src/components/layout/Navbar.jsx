@@ -1,10 +1,10 @@
 // src/components/layout/Navbar.jsx
 
 import { useRef, useState } from "react";
-import { Upload, RotateCcw, Save } from "lucide-react";
+import { Upload, RotateCcw, Save, Trash2 } from "lucide-react";
 import SaveModal from "./modals/SaveModal";
 
-export default function Navbar({ onReset, onUpload, image }) {
+export default function Navbar({ onResetEdits, onClearImage, onUpload, image }) {
   const [openSave, setOpenSave] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -37,28 +37,41 @@ export default function Navbar({ onReset, onUpload, image }) {
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition duration-200"
+            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition duration-200 cursor-pointer"
           >
             <Upload size={16} />
             Upload
           </button>
 
-          {/* ✅ Gunakan prop onReset, bukan window.location.reload() */}
-          <button
-            onClick={onReset}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition duration-200"
-          >
-            <RotateCcw size={16} />
-            Reset
-          </button>
+          {image && (
+            <>
+              <button
+                onClick={onResetEdits}
+                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-medium transition duration-200 cursor-pointer"
+                title="Reset all edits back to original image"
+              >
+                <RotateCcw size={16} />
+                Reset All
+              </button>
 
-          <button
-            onClick={() => setOpenSave(true)}
-            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition duration-200"
-          >
-            <Save size={16} />
-            Save
-          </button>
+              <button
+                onClick={onClearImage}
+                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-red-950/40 border border-red-900/30 hover:bg-red-900/20 text-red-400 font-medium transition duration-200 cursor-pointer"
+                title="Remove image and return to upload screen"
+              >
+                <Trash2 size={16} />
+                Clear Image
+              </button>
+
+              <button
+                onClick={() => setOpenSave(true)}
+                className="flex items-center gap-2 px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition duration-200 cursor-pointer"
+              >
+                <Save size={16} />
+                Save
+              </button>
+            </>
+          )}
         </div>
       </nav>
 

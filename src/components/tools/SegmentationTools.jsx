@@ -64,6 +64,21 @@ export default function SegmentationTools({
       if (result.success) {
         setImage((prev) => ({ ...prev, preview: result.image }));
         resetCssFilterState(setEditorState);
+        // Reset local parameter ke default
+        setThreshold(127);
+        setThresholdType("binary");
+        setEdgeMethod("canny");
+        setEdgeThreshold(100);
+        setSensitivity(50);
+        setTolerance(25);
+        setSeedSelectionEnabled(false);
+        setEditorState((prev) => ({
+          ...prev,
+          segmentation: {
+            seedPoint: null,
+            tolerance: 25,
+          },
+        }));
       } else {
         setError(result.message || "Gagal memproses gambar");
       }
@@ -76,9 +91,22 @@ export default function SegmentationTools({
   };
 
   const handleReset = () => {
-    if (!image) return;
-    setImage((prev) => ({ ...prev, preview: prev.original }));
-    resetCssFilterState(setEditorState);
+    // Reset local parameter ke default (Reset per bagian)
+    setSegmentationType("threshold");
+    setThreshold(127);
+    setThresholdType("binary");
+    setEdgeMethod("canny");
+    setEdgeThreshold(100);
+    setSensitivity(50);
+    setTolerance(25);
+    setSeedSelectionEnabled(false);
+    setEditorState((prev) => ({
+      ...prev,
+      segmentation: {
+        seedPoint: null,
+        tolerance: 25,
+      },
+    }));
     setError(null);
   };
 
@@ -112,11 +140,10 @@ export default function SegmentationTools({
             <label
               key={item.id}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition
-              ${
-                segmentationType === item.id
+              ${segmentationType === item.id
                   ? "bg-blue-600/10 border-blue-500"
                   : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
-              }`}
+                }`}
             >
               <input
                 type="radio"
@@ -219,11 +246,10 @@ export default function SegmentationTools({
             <button
               onClick={handleSeedSelection}
               className={`w-full flex items-center justify-center gap-2 p-3 rounded-lg border transition text-sm font-medium
-              ${
-                seedSelectionEnabled
+              ${seedSelectionEnabled
                   ? "bg-blue-600/10 border-blue-500 text-blue-400"
                   : "bg-zinc-900/50 border-zinc-800 text-zinc-300 hover:bg-zinc-800"
-              }`}
+                }`}
             >
               <MousePointerClick size={18} />
               {seedSelectionEnabled

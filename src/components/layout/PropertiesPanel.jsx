@@ -11,6 +11,8 @@ function PropertiesPanel({
   activeCategory,
   editorState,
   setEditorState,
+  bakedState,
+  setBakedState,
   image,
   setImage,
   isProcessing,
@@ -28,6 +30,8 @@ function PropertiesPanel({
     setIsProcessing,
     editorState,
     setEditorState,
+    bakedState,
+    setBakedState,
     imgRef,
   };
 
@@ -54,8 +58,7 @@ function PropertiesPanel({
 
     "Color Processing": (
       <ColorProcessingTools
-        editorState={editorState}
-        setEditorState={setEditorState}
+        {...backendToolProps}
       />
     ),
 

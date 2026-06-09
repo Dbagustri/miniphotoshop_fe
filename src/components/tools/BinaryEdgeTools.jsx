@@ -73,6 +73,15 @@ export default function BinaryEdgeTools({
       if (result.success) {
         setImage((prev) => ({ ...prev, preview: result.image }));
         resetCssFilterState(setEditorState);
+        // Reset local parameter ke default
+        setThresholdValue(127);
+        setThresholdType("binary");
+        setLowerThreshold(50);
+        setUpperThreshold(150);
+        setKernelSize(3);
+        setSigma(1.5);
+        setDirection("both");
+        setIterations(1);
       } else {
         setError(result.message || "Gagal memproses gambar");
       }
@@ -85,9 +94,18 @@ export default function BinaryEdgeTools({
   };
 
   const handleReset = () => {
-    if (!image) return;
-    setImage((prev) => ({ ...prev, preview: prev.original }));
-    resetCssFilterState(setEditorState);
+    // Reset local parameter ke default (Reset per bagian)
+    setOperation("threshold");
+    setEdgeMethod("canny");
+    setMorphologyType("erosion");
+    setThresholdValue(127);
+    setThresholdType("binary");
+    setLowerThreshold(50);
+    setUpperThreshold(150);
+    setKernelSize(3);
+    setSigma(1.5);
+    setDirection("both");
+    setIterations(1);
     setError(null);
   };
 
@@ -117,11 +135,10 @@ export default function BinaryEdgeTools({
             <label
               key={item.id}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition
-              ${
-                operation === item.id
+              ${operation === item.id
                   ? "bg-blue-600/10 border-blue-500"
                   : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
-              }`}
+                }`}
             >
               <input
                 type="radio"

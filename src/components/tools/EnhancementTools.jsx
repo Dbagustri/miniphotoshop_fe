@@ -7,6 +7,8 @@ import { applyEnhancement } from "../../api/imageApi";
 export default function EnhancementTools({
   editorState,
   setEditorState,
+  bakedState,
+  setBakedState,
   // ✅ Props backend (dikirim dari PropertiesPanel via backendToolProps)
   image,
   setImage,
@@ -63,37 +65,50 @@ export default function EnhancementTools({
       blur: 0,
       histogramEq: false,
     }));
+    setBakedState((prev) => ({
+      ...prev,
+      brightness: 100,
+      contrast: 100,
+      sharpen: 0,
+      blur: 0,
+      histogramEq: false,
+    }));
     setError(null);
   };
 
-  // ✅ Handler Apply All: bake CSS filter → POST ke backend
+  // ✅ Handler Apply All: send current preview directly → POST ke backend dengan parameter selisih
   const handleApplyAll = async () => {
-    if (!image || !imgRef?.current) return;
+    if (!image) return;
 
     setIsProcessing(true);
     setError(null);
 
     try {
-      // 1. Bake semua CSS filter yang aktif ke dalam canvas
-      const flatBase64 = flattenImageToBase64(
-        imgRef.current,
-        buildCssFilter(editorState)
-      );
+      // Hitung parameter selisih dibanding apa yang sudah di-bake sebelumnya
+      const diffParams = {
+        brightness: editorState.brightness - (bakedState?.brightness ?? 100) + 100,
+        contrast: editorState.contrast - (bakedState?.contrast ?? 100) + 100,
+        sharpen: editorState.sharpen - (bakedState?.sharpen ?? 0),
+        blur: editorState.blur - (bakedState?.blur ?? 0),
+        histogram_eq: editorState.histogramEq && !(bakedState?.histogramEq ?? false),
+      };
 
-      // 2. Kirim ke backend dengan params enhancement
-      const result = await applyEnhancement(flatBase64, {
-        brightness: editorState.brightness,
-        contrast: editorState.contrast,
-        sharpen: editorState.sharpen,
-        blur: editorState.blur,
-        histogram_eq: editorState.histogramEq,
-      });
+      // Kirim ke backend
+      const result = await applyEnhancement(image.preview, diffParams);
 
       if (result.success) {
-        // 3. Update preview dengan hasil dari backend
+        // Update preview dengan hasil dari backend
         setImage((prev) => ({ ...prev, preview: result.image }));
-        // 4. Reset CSS filter state (sudah ter-bake ke gambar baru)
-        resetCssFilterState(setEditorState);
+        
+        // Tandai filter saat ini sebagai filter yang sudah sukses di-bake
+        setBakedState((prev) => ({
+          ...prev,
+          brightness: editorState.brightness,
+          contrast: editorState.contrast,
+          sharpen: editorState.sharpen,
+          blur: editorState.blur,
+          histogramEq: editorState.histogramEq,
+        }));
       } else {
         setError(result.message || "Gagal memproses gambar");
       }

@@ -45,6 +45,10 @@ export default function RestorationTools({
         setImage((prev) => ({ ...prev, preview: result.image }));
         // 4. Reset CSS filter (sudah ter-bake)
         resetCssFilterState(setEditorState);
+        // 5. Reset local parameter ke default
+        setKernelSize(3);
+        setSigma(1.5);
+        setIntensity(50);
       } else {
         setError(result.message || "Gagal memproses gambar");
       }
@@ -57,10 +61,11 @@ export default function RestorationTools({
   };
 
   const handleReset = () => {
-    if (!image) return;
-    // Kembalikan preview ke original
-    setImage((prev) => ({ ...prev, preview: prev.original }));
-    resetCssFilterState(setEditorState);
+    // Reset local parameter ke default (Reset per bagian)
+    setSelectedFilter("gaussian");
+    setKernelSize(3);
+    setSigma(1.5);
+    setIntensity(50);
     setError(null);
   };
 
@@ -81,10 +86,9 @@ export default function RestorationTools({
             <label
               key={filter.id}
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition
-                ${
-                  selectedFilter === filter.id
-                    ? "bg-blue-600/10 border-blue-500"
-                    : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
+                ${selectedFilter === filter.id
+                  ? "bg-blue-600/10 border-blue-500"
+                  : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
                 }`}
             >
               <input

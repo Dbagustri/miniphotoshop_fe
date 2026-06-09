@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 // ============================================================
 // BEFORE / AFTER PANEL — ditampilkan di samping canvas
@@ -152,12 +152,15 @@ function CanvasEditor({
   showBefore,
   editorState,
   setEditorState,
+  bakedState,
   setImageInfo,
+  imageInfo,
   isProcessing,
   onUpload,
   // ✅ Crop state diangkat dari editor.jsx agar berbagi dengan TransformationTools
   cropState,
   setCropState,
+  resetTrigger,
 }) {
   const containerRef = useRef(null);
 
@@ -169,11 +172,43 @@ function CanvasEditor({
   const cropDragOrigin = useRef(null);
 
   const cropActive = cropState?.active ?? false;
-  const cropRect   = cropState?.rect   ?? { x: 0, y: 0, width: 0, height: 0 };
+  const cropRect = cropState?.rect ?? { x: 0, y: 0, width: 0, height: 0 };
 
   const currentImage = showBefore ? image?.original : image?.preview;
 
-  const canDrag = editorState.zoom > 1;
+  const canDrag = true;
+
+  // Auto-fit image to container on load or reset
+  useEffect(() => {
+    if (!image || !imgRef?.current || !containerRef?.current) return;
+    
+    const imgEl = imgRef.current;
+    
+    const performFit = () => {
+      if (!containerRef.current) return;
+      const containerW = containerRef.current.clientWidth - 64; // 32px padding on each side
+      const containerH = containerRef.current.clientHeight - 64;
+      const imgW = imgEl.naturalWidth || 800;
+      const imgH = imgEl.naturalHeight || 600;
+      
+      const zoomX = containerW / imgW;
+      const zoomY = containerH / imgH;
+      const fitZoom = Number(Math.min(zoomX, zoomY, 1).toFixed(2));
+      
+      setEditorState((prev) => ({
+        ...prev,
+        zoom: fitZoom,
+        translateX: 0,
+        translateY: 0,
+      }));
+    };
+
+    if (imgEl.complete) {
+      performFit();
+    } else {
+      imgEl.onload = performFit;
+    }
+  }, [image?.original, resetTrigger]);
 
   // ======================
   // IMAGE UPLOAD
@@ -192,12 +227,12 @@ function CanvasEditor({
   // Helper: konversi koordinat layar → koordinat pixel gambar asli
   const screenToImageCoords = useCallback((clientX, clientY) => {
     if (!imgRef?.current) return null;
-    const imgEl  = imgRef.current;
-    const rect   = imgEl.getBoundingClientRect();
-    const scaleW = imgEl.naturalWidth  / rect.width;
+    const imgEl = imgRef.current;
+    const rect = imgEl.getBoundingClientRect();
+    const scaleW = imgEl.naturalWidth / rect.width;
     const scaleH = imgEl.naturalHeight / rect.height;
-    const relX   = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const relY   = Math.max(0, Math.min(clientY - rect.top,  rect.height));
+    const relX = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const relY = Math.max(0, Math.min(clientY - rect.top, rect.height));
     return {
       imgX: Math.round(relX * scaleW),
       imgY: Math.round(relY * scaleH),
@@ -231,9 +266,9 @@ function CanvasEditor({
       setCropState({
         active: true,
         rect: {
-          x:      Math.min(coords.imgX, ox),
-          y:      Math.min(coords.imgY, oy),
-          width:  Math.abs(coords.imgX - ox),
+          x: Math.min(coords.imgX, ox),
+          y: Math.min(coords.imgY, oy),
+          width: Math.abs(coords.imgX - ox),
           height: Math.abs(coords.imgY - oy),
         },
       });
@@ -259,12 +294,22 @@ function CanvasEditor({
 
   const handleWheel = (e) => {
     e.preventDefault();
-    const zoomSpeed = 0.1;
-    setEditorState((prev) => {
-      let nextZoom = prev.zoom + (e.deltaY < 0 ? zoomSpeed : -zoomSpeed);
-      nextZoom = Math.min(Math.max(nextZoom, 0.5), 5);
-      return { ...prev, zoom: Number(nextZoom.toFixed(2)) };
-    });
+    if (e.ctrlKey) {
+      // Zoom
+      const zoomSpeed = 0.1;
+      setEditorState((prev) => {
+        let nextZoom = prev.zoom + (e.deltaY < 0 ? zoomSpeed : -zoomSpeed);
+        nextZoom = Math.min(Math.max(nextZoom, 0.5), 5);
+        return { ...prev, zoom: Number(nextZoom.toFixed(2)) };
+      });
+    } else {
+      // Pan / Scroll
+      setEditorState((prev) => ({
+        ...prev,
+        translateX: prev.translateX - e.deltaX,
+        translateY: prev.translateY - e.deltaY,
+      }));
+    }
   };
 
   // ======================
@@ -280,7 +325,20 @@ function CanvasEditor({
   };
 
   const resetZoom = () => {
-    setEditorState((prev) => ({ ...prev, zoom: 1, translateX: 0, translateY: 0 }));
+    if (!imgRef?.current || !containerRef?.current) {
+      setEditorState((prev) => ({ ...prev, zoom: 1, translateX: 0, translateY: 0 }));
+      return;
+    }
+    const containerW = containerRef.current.clientWidth - 64;
+    const containerH = containerRef.current.clientHeight - 64;
+    const imgW = imgRef.current.naturalWidth || 800;
+    const imgH = imgRef.current.naturalHeight || 600;
+    
+    const zoomX = containerW / imgW;
+    const zoomY = containerH / imgH;
+    const fitZoom = Number(Math.min(zoomX, zoomY, 1).toFixed(2));
+    
+    setEditorState((prev) => ({ ...prev, zoom: fitZoom, translateX: 0, translateY: 0 }));
   };
 
   // ======================
@@ -306,19 +364,19 @@ function CanvasEditor({
   // ── Hitung posisi + ukuran overlay crop dalam koordinat layar ──────────────
   const computeCropOverlay = () => {
     if (!imgRef?.current || !cropActive || cropRect.width < 2 || cropRect.height < 2) return null;
-    const imgEl  = imgRef.current;
-    const rect   = imgEl.getBoundingClientRect();
-    const scaleW = rect.width  / imgEl.naturalWidth;
+    const imgEl = imgRef.current;
+    const rect = imgEl.getBoundingClientRect();
+    const scaleW = rect.width / imgEl.naturalWidth;
     const scaleH = rect.height / imgEl.naturalHeight;
     // Posisi relatif terhadap container (bukan imgEl)
     const containerRect = containerRef.current?.getBoundingClientRect();
     if (!containerRect) return null;
     const offsetX = rect.left - containerRect.left;
-    const offsetY = rect.top  - containerRect.top;
+    const offsetY = rect.top - containerRect.top;
     return {
-      left:   offsetX + cropRect.x * scaleW,
-      top:    offsetY + cropRect.y * scaleH,
-      width:  cropRect.width  * scaleW,
+      left: offsetX + cropRect.x * scaleW,
+      top: offsetY + cropRect.y * scaleH,
+      width: cropRect.width * scaleW,
       height: cropRect.height * scaleH,
     };
   };
@@ -385,7 +443,7 @@ function CanvasEditor({
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             {/* Workspace */}
-            <div className="relative w-full h-full bg-zinc-950 shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden flex items-center justify-center">
+            <div className="relative w-full h-full checkerboard-bg shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden flex items-center justify-center">
               <img
                 ref={imgRef}
                 src={currentImage}
@@ -394,36 +452,35 @@ function CanvasEditor({
                 onMouseDown={handleMouseDown}
                 onClick={handleClick}
                 className={`
-                  object-contain
-                  max-w-full
-                  max-h-full
                   select-none
                   transition-transform
                   duration-100
                   ease-out
-                  ${
-                    cropActive
-                      ? "cursor-crosshair"
-                      : canDrag
-                        ? "cursor-grab"
-                        : "cursor-default"
+                  ${cropActive
+                    ? "cursor-crosshair"
+                    : canDrag
+                      ? "cursor-grab"
+                      : "cursor-default"
                   }
                 `}
                 style={{
+                  width: imageInfo ? `${imageInfo.width * editorState.zoom}px` : "auto",
+                  height: imageInfo ? `${imageInfo.height * editorState.zoom}px` : "auto",
+                  maxWidth: "none",
+                  maxHeight: "none",
                   filter: `
-                    brightness(${editorState.brightness}%)
-                    contrast(${editorState.contrast}%)
-                    blur(${editorState.blur}px)
-                    grayscale(${editorState.grayscale ? 100 : 0}%)
-                    saturate(${editorState.saturation}%)
-                    hue-rotate(${editorState.hue}deg)
+                    brightness(${bakedState ? (editorState.brightness / (bakedState.brightness || 100)) * 100 : editorState.brightness}%)
+                    contrast(${bakedState ? (editorState.contrast / (bakedState.contrast || 100)) * 100 : editorState.contrast}%)
+                    blur(${bakedState ? Math.max(0, editorState.blur - (bakedState.blur || 0)) : editorState.blur}px)
+                    grayscale(${editorState.grayscale && (!bakedState || !bakedState.grayscale) ? 100 : 0}%)
+                    saturate(${bakedState ? (editorState.saturation / (bakedState.saturation || 100)) * 100 : editorState.saturation}%)
+                    hue-rotate(${bakedState ? editorState.hue - (bakedState.hue || 0) : editorState.hue}deg)
                   `,
                   transform: `
-                    translate(${editorState.translateX}px, ${editorState.translateY}px)
-                    scaleX(${editorState.flipHorizontal ? -1 : 1})
-                    scaleY(${editorState.flipVertical ? -1 : 1})
-                    scale(${editorState.zoom})
-                    rotate(${editorState.rotate}deg)
+                    translate(${bakedState ? editorState.translateX - (bakedState.translateX || 0) : editorState.translateX}px, ${bakedState ? editorState.translateY - (bakedState.translateY || 0) : editorState.translateY}px)
+                    scaleX(${(editorState.flipHorizontal !== (bakedState?.flipHorizontal ?? false)) ? -1 : 1})
+                    scaleY(${(editorState.flipVertical !== (bakedState?.flipVertical ?? false)) ? -1 : 1})
+                    rotate(${bakedState ? editorState.rotate - (bakedState.rotate || 0) : editorState.rotate}deg)
                   `,
                 }}
               />
@@ -440,18 +497,18 @@ function CanvasEditor({
                   <div
                     className="absolute pointer-events-none z-20"
                     style={{
-                      left:      cropOverlay.left,
-                      top:       cropOverlay.top,
-                      width:     cropOverlay.width,
-                      height:    cropOverlay.height,
+                      left: cropOverlay.left,
+                      top: cropOverlay.top,
+                      width: cropOverlay.width,
+                      height: cropOverlay.height,
                       background: "transparent",
-                      boxShadow:  "0 0 0 9999px rgba(0,0,0,0.45)",
-                      border:     "2px solid rgba(244,63,94,0.95)",
-                      outline:    "1px solid rgba(255,255,255,0.15)",
+                      boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)",
+                      border: "2px solid rgba(244,63,94,0.95)",
+                      outline: "1px solid rgba(255,255,255,0.15)",
                     }}
                   >
                     {/* Corner handles */}
-                    {[["top-0 left-0","-translate-x-1/2 -translate-y-1/2"],["top-0 right-0","translate-x-1/2 -translate-y-1/2"],["bottom-0 left-0","-translate-x-1/2 translate-y-1/2"],["bottom-0 right-0","translate-x-1/2 translate-y-1/2"]].map(([pos, tr], i) => (
+                    {[["top-0 left-0", "-translate-x-1/2 -translate-y-1/2"], ["top-0 right-0", "translate-x-1/2 -translate-y-1/2"], ["bottom-0 left-0", "-translate-x-1/2 translate-y-1/2"], ["bottom-0 right-0", "translate-x-1/2 translate-y-1/2"]].map(([pos, tr], i) => (
                       <div key={i} className={`absolute ${pos} w-3 h-3 bg-rose-400 rounded-sm border border-white/50 transform ${tr}`} />
                     ))}
                     {/* Rule-of-thirds lines */}

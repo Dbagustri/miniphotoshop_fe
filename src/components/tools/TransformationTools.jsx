@@ -60,6 +60,8 @@ function ToggleBtn({ active, onClick, icon: Icon, label }) {
 export default function TransformationTools({
   editorState,
   setEditorState,
+  bakedState,
+  setBakedState,
   image,
   setImage,
   isProcessing,
@@ -83,15 +85,23 @@ export default function TransformationTools({
   const setCropRect = (rect) =>
     setCropState((prev) => ({ ...prev, rect: typeof rect === "function" ? rect(prev.rect) : rect }));
 
-  // Resize
-  const [scaleX, setScaleX] = useState(1.0);
-  const [scaleY, setScaleY] = useState(1.0);
-  const [lockAspect, setLockAspect] = useState(true);
-
+  // Resize - hubungkan ke editorState
   const val = (key, fallback = 0) => editorState[key] ?? fallback;
+
+  const scaleX = val("scaleX", 1.0);
+  const scaleY = val("scaleY", 1.0);
+  const [lockAspect, setLockAspect] = useState(true);
 
   const update = (key, value) =>
     setEditorState((prev) => ({ ...prev, [key]: value }));
+
+  const updateScale = (x, y) => {
+    setEditorState((prev) => ({
+      ...prev,
+      scaleX: x,
+      scaleY: y,
+    }));
+  };
 
   // ─── Apply all → backend ─────────────────────────────────────────────────
   const handleApplyAll = async () => {
@@ -101,15 +111,16 @@ export default function TransformationTools({
     setSuccess(false);
 
     try {
+      // Hitung parameter selisih dibanding apa yang sudah di-bake sebelumnya
       const params = {
-        rotate:           val("rotate"),
+        rotate:           val("rotate") - (bakedState?.rotate ?? 0),
         expand_canvas:    true,
-        flip_horizontal:  val("flipHorizontal", false),
-        flip_vertical:    val("flipVertical",   false),
-        scale_x:          scaleX,
-        scale_y:          scaleY,
-        translate_x:      val("translateX"),
-        translate_y:      val("translateY"),
+        flip_horizontal:  val("flipHorizontal", false) !== (bakedState?.flipHorizontal ?? false),
+        flip_vertical:    val("flipVertical",   false) !== (bakedState?.flipVertical ?? false),
+        scale_x:          val("scaleX", 1.0) / (bakedState?.scaleX ?? 1.0),
+        scale_y:          val("scaleY", 1.0) / (bakedState?.scaleY ?? 1.0),
+        translate_x:      val("translateX") - (bakedState?.translateX ?? 0),
+        translate_y:      val("translateY") - (bakedState?.translateY ?? 0),
         crop:             (cropActive && cropRect.width > 0 && cropRect.height > 0)
                             ? cropRect
                             : null,
@@ -120,17 +131,19 @@ export default function TransformationTools({
 
       if (result.success) {
         setImage((prev) => ({ ...prev, preview: result.image }));
-        // Reset transform state — sudah ter-bake ke gambar baru
-        setEditorState((prev) => ({
+        
+        // Tandai transform state saat ini sebagai yang sudah sukses di-bake
+        setBakedState((prev) => ({
           ...prev,
-          rotate:         0,
-          translateX:     0,
-          translateY:     0,
-          flipHorizontal: false,
-          flipVertical:   false,
+          rotate:         editorState.rotate,
+          translateX:     editorState.translateX,
+          translateY:     editorState.translateY,
+          flipHorizontal: editorState.flipHorizontal,
+          flipVertical:   editorState.flipVertical,
+          scaleX:         editorState.scaleX ?? 1.0,
+          scaleY:         editorState.scaleY ?? 1.0,
         }));
-        setScaleX(1.0);
-        setScaleY(1.0);
+
         setCropState({ active: false, rect: { x: 0, y: 0, width: 0, height: 0 } });
         setSuccess(true);
         setTimeout(() => setSuccess(false), 2500);
@@ -153,9 +166,19 @@ export default function TransformationTools({
       translateY:     0,
       flipHorizontal: false,
       flipVertical:   false,
+      scaleX:         1.0,
+      scaleY:         1.0,
     }));
-    setScaleX(1.0);
-    setScaleY(1.0);
+    setBakedState((prev) => ({
+      ...prev,
+      rotate:         0,
+      translateX:     0,
+      translateY:     0,
+      flipHorizontal: false,
+      flipVertical:   false,
+      scaleX:         1.0,
+      scaleY:         1.0,
+    }));
     setCropState({ active: false, rect: { x: 0, y: 0, width: 0, height: 0 } });
     setError(null);
   };
@@ -240,15 +263,21 @@ export default function TransformationTools({
         <SliderRow
           label="Scale X" value={scaleX} min={0.1} max={4} step={0.05} unit="×" accent="teal"
           onChange={(v) => {
-            setScaleX(v);
-            if (lockAspect) setScaleY(v);
+            if (lockAspect) {
+              updateScale(v, v);
+            } else {
+              updateScale(v, scaleY);
+            }
           }}
         />
         <SliderRow
           label="Scale Y" value={scaleY} min={0.1} max={4} step={0.05} unit="×" accent="teal"
           onChange={(v) => {
-            setScaleY(v);
-            if (lockAspect) setScaleX(v);
+            if (lockAspect) {
+              updateScale(v, v);
+            } else {
+              updateScale(scaleX, v);
+            }
           }}
         />
 
@@ -257,7 +286,7 @@ export default function TransformationTools({
           {[0.25, 0.5, 1.0, 2.0].map((s) => (
             <button
               key={s}
-              onClick={() => { setScaleX(s); setScaleY(s); }}
+              onClick={() => updateScale(s, s)}
               className={`py-1.5 rounded-lg text-[10px] font-bold border transition ${
                 scaleX === s && scaleY === s
                   ? "bg-teal-600/20 border-teal-500 text-teal-300"

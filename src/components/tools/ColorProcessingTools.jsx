@@ -1,15 +1,85 @@
 // src/components/tools/ColorProcessingTools.jsx
 
 import { useState } from "react";
+import { flattenImageToBase64, buildCssFilter, resetCssFilterState } from "../../utils/imageUtils";
+import { applyColorProcessing } from "../../api/imageApi";
 
-export default function ColorProcessingTools({ editorState, setEditorState }) {
+export default function ColorProcessingTools({
+  image,
+  setImage,
+  isProcessing,
+  setIsProcessing,
+  editorState,
+  setEditorState,
+  bakedState,
+  setBakedState,
+  imgRef,
+}) {
   const [mode, setMode] = useState("grayscale");
+  const [error, setError] = useState(null);
 
   const updateValue = (key, value) => {
     setEditorState((prev) => ({
       ...prev,
       [key]: value,
     }));
+  };
+
+  const handleApply = async () => {
+    if (!image) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // Hitung parameter selisih dibanding apa yang sudah di-bake sebelumnya
+      const params = {
+        mode: mode, // "grayscale" | "adjustment"
+        hue: Number(editorState.hue) - (bakedState?.hue ?? 0),
+        saturation: Number(editorState.saturation) - (bakedState?.saturation ?? 100) + 100,
+        channel: "R" // default channel
+      };
+
+      // Kirim ke backend
+      const result = await applyColorProcessing(image.preview, params);
+
+      if (result.success) {
+        // Update preview dengan hasil dari backend
+        setImage((prev) => ({ ...prev, preview: result.image }));
+        
+        // Tandai filter saat ini sebagai filter yang sudah sukses di-bake
+        setBakedState((prev) => ({
+          ...prev,
+          grayscale: editorState.grayscale,
+          hue: editorState.hue,
+          saturation: editorState.saturation,
+        }));
+      } else {
+        setError(result.message || "Gagal memproses gambar");
+      }
+    } catch (err) {
+      setError("Tidak dapat terhubung ke server. Pastikan backend berjalan.");
+      console.error("Color Processing error:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReset = () => {
+    // Reset local parameter ke default (Reset per bagian)
+    setEditorState((prev) => ({
+      ...prev,
+      grayscale: false,
+      hue: 0,
+      saturation: 100,
+    }));
+    setBakedState((prev) => ({
+      ...prev,
+      grayscale: false,
+      hue: 0,
+      saturation: 100,
+    }));
+    setError(null);
   };
 
   return (
@@ -36,7 +106,7 @@ export default function ColorProcessingTools({ editorState, setEditorState }) {
               className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
                 mode === item.id
                   ? "bg-blue-600/10 border-blue-500"
-                  : "bg-zinc-900/50 border-zinc-800"
+                  : "bg-zinc-900/50 border-zinc-800 hover:bg-zinc-800"
               }`}
             >
               <input
@@ -54,7 +124,7 @@ export default function ColorProcessingTools({ editorState, setEditorState }) {
 
       {/* Grayscale */}
       {mode === "grayscale" && (
-        <label className="flex items-center justify-between p-4 rounded-lg bg-zinc-900 border border-zinc-800">
+        <label className="flex items-center justify-between p-4 rounded-lg bg-zinc-900 border border-zinc-800 cursor-pointer hover:bg-zinc-800/80 transition">
           <span className="text-sm text-zinc-300">Enable Grayscale</span>
 
           <input
@@ -86,6 +156,32 @@ export default function ColorProcessingTools({ editorState, setEditorState }) {
           />
         </div>
       )}
+
+      {/* Error message */}
+      {error && (
+        <p className="text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg p-3">
+          {error}
+        </p>
+      )}
+
+      {/* Buttons */}
+      <div className="pt-4 space-y-2">
+        <button
+          onClick={handleApply}
+          disabled={!image || isProcessing}
+          className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold uppercase rounded-lg transition cursor-pointer"
+        >
+          {isProcessing ? "Processing..." : "Apply"}
+        </button>
+
+        <button
+          onClick={handleReset}
+          disabled={isProcessing}
+          className="w-full py-2.5 bg-transparent border border-zinc-800 text-zinc-500 hover:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold uppercase rounded-lg transition cursor-pointer"
+        >
+          Reset
+        </button>
+      </div>
     </div>
   );
 }

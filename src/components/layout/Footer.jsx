@@ -14,8 +14,7 @@ import Histogram from "../histogram/Histogram";
 // ============================================================
 // MAIN FOOTER
 // ============================================================
-function Footer({ imageInfo, image }) {
-  const [isOpen, setIsOpen] = useState(false);
+function Footer({ imageInfo, image, isOpen, setIsOpen }) {
   const [activeTab, setActiveTab] = useState("histogram"); // "histogram" | "info"
   const [histogramData, setHistogramData] = useState(null);
   const [histogramType, setHistogramType] = useState("rgb");
